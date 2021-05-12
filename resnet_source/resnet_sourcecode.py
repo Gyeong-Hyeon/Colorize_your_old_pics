@@ -48,7 +48,7 @@ def ResNet(stack_fn,
            classes=1000,
            classifier_activation='softmax',
            **kwargs):
-    
+  ## 입력 예외처리
   global layers
   if 'layers' in kwargs:
     layers = kwargs.pop('layers')
@@ -66,7 +66,7 @@ def ResNet(stack_fn,
     raise ValueError('If using `weights` as `"imagenet"` with `include_top`'
                      ' as true, `classes` should be 1000')
 
-  # Determine proper input shape
+  ## 입력값설정 Determine proper input shape
   input_shape = imagenet_utils.obtain_input_shape(
       input_shape,
       default_size=224,
@@ -83,8 +83,10 @@ def ResNet(stack_fn,
     else:
       img_input = input_tensor
 
+  ## 
   bn_axis = 3 if backend.image_data_format() == 'channels_last' else 1
 
+  ## 크기를 반으로 줄임....?
   x = layers.ZeroPadding2D(
       padding=((3, 3), (3, 3)), name='conv1_pad')(img_input)
   x = layers.Conv2D(64, 7, strides=2, use_bias=use_bias, name='conv1_conv')(x)
@@ -94,9 +96,11 @@ def ResNet(stack_fn,
         axis=bn_axis, epsilon=1.001e-5, name='conv1_bn')(x)
     x = layers.Activation('relu', name='conv1_relu')(x)
 
+  ## 반으로 또 줄임..?
   x = layers.ZeroPadding2D(padding=((1, 1), (1, 1)), name='pool1_pad')(x)
   x = layers.MaxPooling2D(3, strides=2, name='pool1_pool')(x)
 
+  # stack한 블럭으로 반환, 여기서는 1/8 (현재까지 1/32)
   x = stack_fn(x)
 
   if preact:
@@ -104,6 +108,7 @@ def ResNet(stack_fn,
         axis=bn_axis, epsilon=1.001e-5, name='post_bn')(x)
     x = layers.Activation('relu', name='post_relu')(x)
 
+  ## 여기서 class로 나누어줌
   if include_top:
     x = layers.GlobalAveragePooling2D(name='avg_pool')(x)
     imagenet_utils.validate_activation(classifier_activation, weights)
@@ -204,7 +209,7 @@ def stack1(x, filters, blocks, stride1=2, name=None):
     x = block1(x, filters, conv_shortcut=False, name=name + '_block' + str(i))
   return x
 
-
+## block에는 stride 디폴트가 1, stack에서 stride값을 받아올 수 있음
 def block2(x, filters, kernel_size=3, stride=1, conv_shortcut=False, name=None):
   """A residual block.
   Arguments:
@@ -263,9 +268,11 @@ def stack2(x, filters, blocks, stride1=2, name=None):
   Returns:
       Output tensor for the stacked blocks.
   """
+  ## 여기서는 stride를 1로 줌
   x = block2(x, filters, conv_shortcut=True, name=name + '_block1')
   for i in range(2, blocks):
     x = block2(x, filters, name=name + '_block' + str(i))
+  ## 여기서는 stride를 2로 줌 (3번)
   x = block2(x, filters, stride=stride1, name=name + '_block' + str(blocks))
   return x
 
@@ -359,24 +366,3 @@ def stack3(x, filters, blocks, stride1=2, groups=32, name=None):
         name=name + '_block' + str(i))
   return x
 
-
-@keras_export('keras.applications.resnet50.ResNet50',
-              'keras.applications.resnet.ResNet50',
-              'keras.applications.ResNet50')
-def ResNet50(include_top=True,
-             weights='imagenet',
-             input_tensor=None,
-             input_shape=None,
-             pooling=None,
-             classes=1000,
-             **kwargs):
-  """Instantiates the ResNet50 architecture."""
-
-  def stack_fn(x):
-    x = stack1(x, 64, 3, stride1=1, name='conv2')
-    x = stack1(x, 128, 4, name='conv3')
-    x = stack1(x, 256, 6, name='conv4')
-    return stack1(x, 512, 3, name='conv5')
-
-  return ResNet(stack_fn, False, True, 'resnet50', include_top, weights,
-                input_tensor, input_shape, pooling, classes, **kwargs)
