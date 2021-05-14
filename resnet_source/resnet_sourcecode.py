@@ -100,7 +100,7 @@ def ResNet(stack_fn,
   x = layers.ZeroPadding2D(padding=((1, 1), (1, 1)), name='pool1_pad')(x)
   x = layers.MaxPooling2D(3, strides=2, name='pool1_pool')(x)
 
-  # stack한 블럭으로 반환, 여기서는 1/8 (현재까지 1/32)
+  # stack한 블럭으로 반환, 여기서는 1/8 (현재까지 1/32),(224/32=7)
   x = stack_fn(x)
 
   if preact:
@@ -108,7 +108,7 @@ def ResNet(stack_fn,
         axis=bn_axis, epsilon=1.001e-5, name='post_bn')(x)
     x = layers.Activation('relu', name='post_relu')(x)
 
-  ## 여기서 class로 나누어줌
+  ## 여기서 class로 나누어줌 (7x7에서 1000개로 뽑는 것)
   if include_top:
     x = layers.GlobalAveragePooling2D(name='avg_pool')(x)
     imagenet_utils.validate_activation(classifier_activation, weights)
